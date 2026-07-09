@@ -1,4 +1,4 @@
-import { sendToBackground, type AppMessage, type SessionState } from "../shared/messages";
+import { sendToBackground, type AppMessage, type SessionState, type StateSnapshot } from "../shared/messages";
 import { isWebGpuAvailable } from "../shared/webgpu";
 import type { Insight } from "../pipeline/types";
 
@@ -29,10 +29,13 @@ async function init(): Promise<void> {
   }
   $<HTMLElement>("screen-main").hidden = false;
 
-  const stored = await chrome.storage.local.get({ micEnabled: false, tickIntervalSeconds: 60 });
-  chkMic.checked = (stored.micEnabled as boolean) ?? false;
+  const stored = await chrome.storage.local.get<{ micEnabled: boolean; tickIntervalSeconds: number }>({
+    micEnabled: false,
+    tickIntervalSeconds: 60,
+  });
+  chkMic.checked = stored.micEnabled;
   const selInterval = $<HTMLSelectElement>("sel-interval");
-  selInterval.value = String((stored.tickIntervalSeconds as number) ?? 60);
+  selInterval.value = String(stored.tickIntervalSeconds);
   // Applies at the next session start (the controller reads it in start()).
   selInterval.onchange = () =>
     chrome.storage.local.set({ tickIntervalSeconds: Number(selInterval.value) });
@@ -62,6 +65,28 @@ async function init(): Promise<void> {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  // Panel may have opened mid-session (e.g. reopened while recording); ask
+  // the offscreen document for its current state so the UI can catch up.
+  try {
+    const snap = (await chrome.runtime.sendMessage({
+      target: "offscreen",
+      type: "REQUEST_STATE",
+    })) as StateSnapshot | undefined;
+    // chrome.runtime.sendMessage also resolves undefined when no listener
+    // answered (e.g. no offscreen document yet) → treat as idle.
+    if (snap !== undefined && snap.state !== "idle") {
+      finalLines.length = 0;
+      if (snap.transcript) finalLines.push(snap.transcript);
+      partialLine = "";
+      renderTranscript();
+      insightsEl.replaceChildren();
+      for (const insight of snap.insights) renderInsight(insight);
+      applyState(snap.state);
+    }
+  } catch {
+    // No offscreen document yet → stay idle.
+  }
 }
 
 chrome.runtime.onMessage.addListener((msg: AppMessage) => {
@@ -69,6 +94,13 @@ chrome.runtime.onMessage.addListener((msg: AppMessage) => {
   switch (msg.type) {
     case "SESSION_STATE":
       applyState(msg.state);
+      break;
+    case "SESSION_RESET":
+      finalLines.length = 0;
+      partialLine = "";
+      insightsEl.replaceChildren();
+      renderTranscript();
+      errorEl.hidden = true;
       break;
     case "DOWNLOAD_PROGRESS":
       download.hidden = false;

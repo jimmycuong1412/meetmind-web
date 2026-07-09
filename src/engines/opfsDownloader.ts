@@ -2,6 +2,13 @@ import type { DownloadPlan } from "./downloadPlanner";
 
 const DIR = "models";
 
+export class DownloadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DownloadError";
+  }
+}
+
 async function modelsDir(): Promise<FileSystemDirectoryHandle> {
   const root = await navigator.storage.getDirectory();
   return root.getDirectoryHandle(DIR, { create: true });
@@ -31,7 +38,7 @@ export class OpfsDownloader {
     for (const { file, resumeFrom } of plan.toFetch) {
       const headers: HeadersInit = resumeFrom > 0 ? { Range: `bytes=${resumeFrom}-` } : {};
       const res = await fetch(file.url, { headers });
-      if (!res.ok || !res.body) throw new Error(`download failed: ${file.url} → HTTP ${res.status}`);
+      if (!res.ok || !res.body) throw new DownloadError(`download failed: ${file.url} → HTTP ${res.status}`);
       // A server ignoring Range returns 200 with the full body → restart the file.
       const effectiveOffset = res.status === 206 ? resumeFrom : 0;
       if (effectiveOffset === 0 && resumeFrom > 0) received -= resumeFrom;
@@ -41,12 +48,16 @@ export class OpfsDownloader {
       if (effectiveOffset > 0) await writable.seek(effectiveOffset);
 
       const reader = res.body.getReader();
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        await writable.write(value);
-        received += value.byteLength;
-        onProgress(received, plan.totalBytes, file.name);
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          await writable.write(value);
+          received += value.byteLength;
+          onProgress(received, plan.totalBytes, file.name);
+        }
+      } catch (err) {
+        throw new DownloadError(err instanceof Error ? err.message : String(err));
       }
       await writable.close();
     }
