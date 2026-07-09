@@ -1,8 +1,53 @@
 <!doctype html>
 <html>
-  <head><meta charset="utf-8" /><title>MeetMind Web</title></head>
+  <head>
+    <meta charset="utf-8" />
+    <title>MeetMind Web</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
   <body>
-    <h1>MeetMind Web</h1>
+    <header>
+      <h1>MeetMind Web</h1>
+      <span id="state-badge" class="badge">idle</span>
+    </header>
+
+    <section id="screen-unsupported" hidden>
+      <p><strong>WebGPU is not available on this device.</strong></p>
+      <p>MeetMind Web runs its AI fully on your device and requires WebGPU
+         (Chrome 124+ with a supported GPU). No data ever leaves your machine.</p>
+    </section>
+
+    <section id="screen-main" hidden>
+      <div class="controls">
+        <button id="btn-start">Start</button>
+        <button id="btn-stop" hidden>Stop</button>
+        <label><input type="checkbox" id="chk-mic" /> Include my microphone</label>
+        <label>Insight every
+          <select id="sel-interval">
+            <option value="30">30 s</option>
+            <option value="60" selected>60 s</option>
+            <option value="120">2 min</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="download" hidden>
+        <p id="download-label">Downloading models…</p>
+        <progress id="download-bar" max="100" value="0"></progress>
+      </div>
+
+      <h2>Insights</h2>
+      <div id="insights" class="cards"></div>
+
+      <h2>Transcript</h2>
+      <div id="transcript"></div>
+      <div class="controls">
+        <button id="btn-copy" disabled>Copy transcript</button>
+        <button id="btn-download" disabled>Download .txt</button>
+      </div>
+    </section>
+
+    <p id="error" class="error" hidden></p>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

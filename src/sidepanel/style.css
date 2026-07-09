@@ -1,0 +1,24 @@
+:root { font-family: system-ui, sans-serif; font-size: 14px; }
+body { margin: 0; padding: 12px; }
+header { display: flex; align-items: center; gap: 8px; }
+h1 { font-size: 16px; margin: 0; flex: 1; }
+h2 { font-size: 13px; text-transform: uppercase; color: #666; margin: 16px 0 6px; }
+.badge { background: #eee; border-radius: 10px; padding: 2px 10px; font-size: 12px; }
+.badge.recording { background: #fde8e8; color: #b91c1c; }
+.controls { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+button { padding: 6px 14px; cursor: pointer; }
+.cards { display: flex; flex-direction: column; gap: 8px; }
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+.card h3 { margin: 0 0 6px; font-size: 14px; }
+.card ul { margin: 6px 0 0; padding-left: 18px; }
+#transcript { white-space: pre-wrap; max-height: 40vh; overflow-y: auto;
+  border: 1px solid #eee; border-radius: 8px; padding: 8px; min-height: 60px; }
+#transcript .partial { color: #999; }
+.error { color: #b91c1c; }
+progress { width: 100%; }
+@media (prefers-color-scheme: dark) {
+  body { background: #1b1b1f; color: #e4e4e7; }
+  .badge { background: #333; }
+  .card, #transcript { border-color: #3a3a40; }
+  h2 { color: #9a9aa3; }
+}
