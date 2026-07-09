@@ -15,7 +15,11 @@ export default defineManifest({
   // It is built as its own emitted asset (vite.config.ts) rather than an
   // `import.meta.url`-relative worklet import, which Vite/CRXJS inlines as an
   // unusable base64 data: URI of untranspiled TypeScript.
+  // sherpa/* are the vendored sherpa-onnx WASM glue (.js) and runtime (.wasm),
+  // loaded inside the STT worker via importScripts(chrome.runtime.getURL(...)).
+  // A worker in the extension origin still needs these listed as
+  // web-accessible for chrome.runtime.getURL() to resolve them.
   web_accessible_resources: [
-    { resources: ["pcm-chunker.js"], matches: ["<all_urls>"] },
+    { resources: ["pcm-chunker.js", "sherpa/*"], matches: ["<all_urls>"] },
   ],
 });

@@ -1,8 +1,9 @@
 import { AudioCapture } from "./audioCapture";
+import { SherpaSttEngine } from "../engines/sttEngine";
 import { sendToSidepanel, type AppMessage } from "../shared/messages";
 
 const capture = new AudioCapture();
-let chunkCount = 0; // dev logging; the STT worker replaces onPcm in Task 7
+const stt = new SherpaSttEngine();
 
 chrome.runtime.onMessage.addListener((msg: AppMessage, _sender, sendResponse) => {
   if (msg.target !== "offscreen") return;
@@ -25,14 +26,19 @@ chrome.runtime.onMessage.addListener((msg: AppMessage, _sender, sendResponse) =>
 async function handle(msg: Extract<AppMessage, { target: "offscreen" }>): Promise<void> {
   switch (msg.type) {
     case "OFFSCREEN_START_CAPTURE":
+      sendToSidepanel({ target: "sidepanel", type: "SESSION_STATE", state: "downloading" });
+      await stt.init((received, total, file) =>
+        sendToSidepanel({ target: "sidepanel", type: "DOWNLOAD_PROGRESS", file, received, total }),
+      );
+      stt.onSegment = (segment) =>
+        sendToSidepanel({ target: "sidepanel", type: "SEGMENT", segment });
       await capture.start(
         msg.streamId,
         msg.micEnabled,
-        (samples) => {
-          if (++chunkCount % 25 === 0) console.log(`pcm chunks: ${chunkCount}`);
-        },
+        (samples) => stt.acceptPcm(samples),
         () => {
           capture.stop();
+          stt.dispose();
           sendToSidepanel({ target: "sidepanel", type: "SESSION_STATE", state: "stopped" });
         },
       );
@@ -40,6 +46,7 @@ async function handle(msg: Extract<AppMessage, { target: "offscreen" }>): Promis
       break;
     case "OFFSCREEN_STOP_CAPTURE":
       capture.stop();
+      stt.dispose();
       sendToSidepanel({ target: "sidepanel", type: "SESSION_STATE", state: "stopped" });
       break;
     case "OFFSCREEN_SET_MIC":

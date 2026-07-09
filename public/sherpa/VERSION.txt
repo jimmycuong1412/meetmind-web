@@ -1,0 +1,30 @@
+sherpa-onnx WASM ASR glue — vendored for MeetMind Web Task 7
+
+Upstream release : k2-fsa/sherpa-onnx  v1.13.4
+Release asset    : sherpa-onnx-wasm-simd-v1.13.4-en-asr-zipformer.tar.bz2
+Asset URL        : https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.4/sherpa-onnx-wasm-simd-v1.13.4-en-asr-zipformer.tar.bz2
+Retrieved        : 2026-07-09
+
+Vendored files (glue only — the 190 MB embedded-model .data was INTENTIONALLY
+excluded; MeetMind supplies its own int8 model at runtime from OPFS):
+  sherpa-onnx-wasm-main-asr.js   sha256=771cfdda64418540df645482894cd555171e253cf5ec99f0902218acaebad7c0
+  sherpa-onnx-wasm-main-asr.wasm sha256=22011a4b84415cb1b4926650da7a1f0486fff8b7f9ac6a63d0a7b4a3062fa4f1
+  sherpa-onnx-asr.js             sha256=d51ae8e8b756ee5e53423ffada0c9702973f154f561aca7984fe0b12f4060178
+
+NOT vendored (embedded model, replaced by runtime OPFS model):
+  sherpa-onnx-wasm-main-asr.data (190 MB)
+
+How the embedded model is bypassed:
+  The Emscripten data-package loader calls Module["getPreloadedPackage"] before
+  fetching the .data. The worker sets getPreloadedPackage to return an empty
+  ArrayBuffer, so no .data is fetched. The loader then writes empty placeholder
+  files (/encoder.onnx, /decoder.onnx, /joiner.onnx, /tokens.txt) which are
+  never referenced. The worker writes the real int8 model to /stt-*.onnx and
+  points the recognizer config at those paths.
+
+Recognizer API (in sherpa-onnx-asr.js):
+  createOnlineRecognizer(Module, myConfig)  -> line 584 (uses myConfig verbatim when provided, lines 675-677)
+  OnlineRecognizer.createStream/isReady/decode/isEndpoint/reset/getResult -> lines 1971-2002
+  OnlineStream.acceptWaveform(sampleRate, samples) -> line 1905
+  getResult(stream) returns parsed JSON { text, tokens, ... } -> lines 1994-2002
+  Endpoint config (rule1/2/3) consumed in initSherpaOnnxOnlineRecognizerConfig -> lines 527-537
