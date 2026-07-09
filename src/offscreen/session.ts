@@ -4,7 +4,7 @@ import { TickScheduler } from "../pipeline/tickScheduler";
 import { parseInsight } from "../pipeline/insightParser";
 import { SherpaSttEngine } from "../engines/sttEngine";
 import { WebLlmInsightEngine } from "../engines/insightEngine";
-import { sendToSidepanel, type SessionState } from "../shared/messages";
+import { sendToSidepanel, type SessionState, type StateSnapshot } from "../shared/messages";
 import type { Insight } from "../pipeline/types";
 
 const DEFAULT_TICK_INTERVAL_S = 60;
@@ -28,11 +28,16 @@ export class SessionController {
 
     sendToSidepanel({ target: "sidepanel", type: "SESSION_RESET" });
 
+    // Invariant: stop() may run during any await in start(); every await is
+    // followed by a `running` re-check that disposes anything the continuing
+    // start() acquired after stop() already cleaned up, then bails out.
     const { tickIntervalSeconds } = await chrome.storage.local.get<{
       tickIntervalSeconds: number;
     }>({
       tickIntervalSeconds: DEFAULT_TICK_INTERVAL_S,
     });
+    if (!this.running) return; // nothing acquired yet
+
     const scheduler = new TickScheduler(tickIntervalSeconds * 1000, () => this.tick());
     this.scheduler = scheduler;
 
@@ -40,9 +45,22 @@ export class SessionController {
     await this.stt.init((received, total, file) =>
       sendToSidepanel({ target: "sidepanel", type: "DOWNLOAD_PROGRESS", file, received, total }),
     );
+    if (!this.running) {
+      // stop() disposed the STT engine mid-init; the now-completed init may
+      // have re-acquired resources after that dispose, so dispose again.
+      this.stt.dispose();
+      return;
+    }
 
     this.setState("loading");
     await this.llm.init(() => {});
+    if (!this.running) {
+      // stop() disposed the LLM mid-init; the now-completed init re-created
+      // the engine, so dispose it. stt finished init before this await and
+      // was fully disposed by stop() — nothing re-created it since.
+      this.llm.dispose();
+      return;
+    }
 
     this.stt.onSegment = (segment) => {
       this.store.append(segment);
@@ -55,6 +73,17 @@ export class SessionController {
       (samples) => this.stt.acceptPcm(samples),
       () => this.handleStreamEnded(),
     );
+    // Final check immediately before scheduler.start(): stop() nulled
+    // this.scheduler, so starting the local `scheduler` would orphan its
+    // interval and leave the session unstoppable (running is already false).
+    if (!this.running) {
+      // stop() called capture.stop() mid-start; the now-completed start may
+      // have re-acquired tracks/audio context after that, so stop it again.
+      // Both engines were disposed by stop() and not re-created since their
+      // checks above.
+      this.capture.stop();
+      return;
+    }
 
     scheduler.start();
     this.setState("recording");
@@ -94,7 +123,7 @@ export class SessionController {
     return this.capture.setMicEnabled(enabled);
   }
 
-  snapshot(): { state: SessionState; transcript: string; insights: Insight[] } {
+  snapshot(): StateSnapshot {
     return { state: this.state, transcript: this.store.fullText(), insights: [...this.insights] };
   }
 

@@ -37,7 +37,14 @@ export class OpfsDownloader {
     let received = plan.alreadyBytes;
     for (const { file, resumeFrom } of plan.toFetch) {
       const headers: HeadersInit = resumeFrom > 0 ? { Range: `bytes=${resumeFrom}-` } : {};
-      const res = await fetch(file.url, { headers });
+      let res: Response;
+      try {
+        res = await fetch(file.url, { headers });
+      } catch (err) {
+        // Network-level rejection (e.g. TypeError before any response) is a
+        // download failure too, not an engine failure.
+        throw new DownloadError(err instanceof Error ? err.message : String(err));
+      }
       if (!res.ok || !res.body) throw new DownloadError(`download failed: ${file.url} → HTTP ${res.status}`);
       // A server ignoring Range returns 200 with the full body → restart the file.
       const effectiveOffset = res.status === 206 ? resumeFrom : 0;
