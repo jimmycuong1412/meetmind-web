@@ -39,7 +39,7 @@ export class WebLlmInsightEngine implements InsightEngine {
   }
 
   dispose(): void {
-    this.engine?.unload();
+    void this.engine?.unload().catch(() => {});
     this.engine = null;
   }
 }

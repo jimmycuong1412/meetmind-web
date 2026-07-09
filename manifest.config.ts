@@ -12,14 +12,11 @@ export default defineManifest({
   side_panel: { default_path: "src/sidepanel/index.html" },
   // pcm-chunker.js is loaded at runtime via chrome.runtime.getURL() by
   // AudioContext.audioWorklet.addModule() (see src/offscreen/audioCapture.ts).
-  // It is built as its own emitted asset (vite.config.ts) rather than an
-  // `import.meta.url`-relative worklet import, which Vite/CRXJS inlines as an
-  // unusable base64 data: URI of untranspiled TypeScript.
   // sherpa/* are the vendored sherpa-onnx WASM glue (.js) and runtime (.wasm),
   // loaded inside the STT worker via importScripts(chrome.runtime.getURL(...)).
-  // A worker in the extension origin still needs these listed as
-  // web-accessible for chrome.runtime.getURL() to resolve them.
-  web_accessible_resources: [
-    { resources: ["pcm-chunker.js", "sherpa/*"], matches: ["<all_urls>"] },
-  ],
+  // No web_accessible_resources entry is needed for either: both loaders run
+  // inside same-extension-origin contexts (the offscreen document and the
+  // classic STT worker), which are not gated by web_accessible_resources —
+  // that gate only applies to foreign-origin (web page) requests. An entry
+  // here would only expose these files to other origins, so it's omitted.
 });

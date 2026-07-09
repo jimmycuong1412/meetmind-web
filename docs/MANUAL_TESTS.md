@@ -19,6 +19,14 @@ For each of: **MS Teams web (primary)**, Google Meet, Zoom web, YouTube (control
 - [ ] `--disable-features=WebGPU` → unsupported screen (no crash, no start button)
 - [ ] Malformed model output (unplug… not injectable — covered by unit tests) — N/A manual
 
+## Troubleshooting
+
+- [ ] If the STT worker fails loading `sherpa/*`, or the offscreen document's
+      audio worklet fails to load, on first manual run: re-add a
+      `web_accessible_resources` entry for those paths in `manifest.config.ts`
+      (removed as same-origin-only per the final whole-branch review) and file
+      it as a finding.
+
 ## Results
 
 **Initial run: PENDING** — to be executed by a human before first release (this
