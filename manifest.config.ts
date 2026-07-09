@@ -10,4 +10,12 @@ export default defineManifest({
   permissions: ["tabCapture", "sidePanel", "offscreen", "storage", "tabs"],
   background: { service_worker: "src/background/index.ts", type: "module" },
   side_panel: { default_path: "src/sidepanel/index.html" },
+  // pcm-chunker.js is loaded at runtime via chrome.runtime.getURL() by
+  // AudioContext.audioWorklet.addModule() (see src/offscreen/audioCapture.ts).
+  // It is built as its own emitted asset (vite.config.ts) rather than an
+  // `import.meta.url`-relative worklet import, which Vite/CRXJS inlines as an
+  // unusable base64 data: URI of untranspiled TypeScript.
+  web_accessible_resources: [
+    { resources: ["pcm-chunker.js"], matches: ["<all_urls>"] },
+  ],
 });
