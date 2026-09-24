@@ -19,6 +19,13 @@ const errorEl = $<HTMLParagraphElement>("error");
 
 const finalLines: string[] = [];
 let partialLine = "";
+// Partial hypotheses arrive several times a second; only this element is
+// rewritten for them, final lines are appended once as their own nodes.
+const partialEl = document.createElement("div");
+partialEl.className = "line partial";
+transcriptEl.append(partialEl);
+// How close (px) to the bottom still counts as "following" the live transcript.
+const FOLLOW_THRESHOLD_PX = 24;
 
 init();
 
@@ -108,13 +115,16 @@ chrome.runtime.onMessage.addListener((msg: AppMessage) => {
       downloadBar.value = msg.total > 0 ? (msg.received / msg.total) * 100 : 0;
       break;
     case "SEGMENT":
-      if (msg.segment.isFinal) {
-        finalLines.push(msg.segment.text);
-        partialLine = "";
-      } else {
-        partialLine = msg.segment.text;
-      }
-      renderTranscript();
+      updateTranscript(() => {
+        if (msg.segment.isFinal) {
+          finalLines.push(msg.segment.text);
+          partialLine = "";
+          partialEl.before(lineEl(msg.segment.text));
+        } else {
+          partialLine = msg.segment.text;
+        }
+        partialEl.textContent = partialLine;
+      });
       break;
     case "INSIGHT":
       renderInsight(msg.insight);
@@ -137,17 +147,33 @@ function applyState(state: SessionState): void {
   btnDownload.disabled = !hasContent;
 }
 
+/** Rebuilds the transcript pane from `finalLines` + `partialLine`. */
 function renderTranscript(): void {
-  transcriptEl.textContent = finalLines.join("\n");
-  if (partialLine !== "") {
-    const span = document.createElement("span");
-    span.className = "partial";
-    span.textContent = (finalLines.length ? "\n" : "") + partialLine;
-    transcriptEl.append(span);
-  }
-  transcriptEl.scrollTop = transcriptEl.scrollHeight;
+  updateTranscript(() => {
+    partialEl.textContent = partialLine;
+    transcriptEl.replaceChildren(...finalLines.map(lineEl), partialEl);
+  });
+}
+
+/**
+ * Applies `mutate` to the transcript pane, keeping it scrolled to the newest
+ * line only if the user was already at the bottom — so scrolling up to read
+ * earlier lines isn't yanked back down by every incoming segment.
+ */
+function updateTranscript(mutate: () => void): void {
+  const el = transcriptEl;
+  const following = el.scrollHeight - el.scrollTop - el.clientHeight <= FOLLOW_THRESHOLD_PX;
+  mutate();
+  if (following) el.scrollTop = el.scrollHeight;
   btnCopy.disabled = finalLines.length === 0;
   btnDownload.disabled = finalLines.length === 0;
+}
+
+function lineEl(text: string): HTMLDivElement {
+  const div = document.createElement("div");
+  div.className = "line";
+  div.textContent = text;
+  return div;
 }
 
 function renderInsight(insight: Insight): void {
