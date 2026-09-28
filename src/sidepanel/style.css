@@ -1,24 +1,42 @@
 :root { font-family: system-ui, sans-serif; font-size: 14px; }
-body { margin: 0; padding: 12px; }
-header { display: flex; align-items: center; gap: 8px; }
+/* Author `display` rules (e.g. flex below) would otherwise override `hidden`. */
+[hidden] { display: none !important; }
+
+/* The panel is a fixed-height column: header and controls stay put, and the
+   insights and transcript each scroll in their own pane instead of the whole
+   page scrolling (which pushed the transcript and controls out of view). */
+html, body { height: 100%; }
+body { margin: 0; padding: 12px; box-sizing: border-box; display: flex;
+  flex-direction: column; overflow: hidden; }
+header { display: flex; align-items: center; gap: 8px; flex: none; }
 h1 { font-size: 16px; margin: 0; flex: 1; }
-h2 { font-size: 13px; text-transform: uppercase; color: #666; margin: 16px 0 6px; }
+h2 { font-size: 13px; text-transform: uppercase; color: #666; margin: 16px 0 6px; flex: none; }
 .badge { background: #eee; border-radius: 10px; padding: 2px 10px; font-size: 12px; }
 .badge.recording { background: #fde8e8; color: #b91c1c; }
-.controls { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+.controls { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; flex: none; }
 button { padding: 6px 14px; cursor: pointer; }
+#screen-unsupported { overflow-y: auto; }
+#screen-main { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#download { flex: none; }
+
+.pane { overflow-y: auto; overscroll-behavior: contain; min-height: 80px;
+  border: 1px solid #eee; border-radius: 8px; padding: 8px; }
+#insights { flex: 2 1 0; }
+#transcript { flex: 3 1 0; }
+
 .cards { display: flex; flex-direction: column; gap: 8px; }
-.card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+.card { border: 1px solid #ddd; border-radius: 8px; padding: 10px; flex: none; }
 .card h3 { margin: 0 0 6px; font-size: 14px; }
 .card ul { margin: 6px 0 0; padding-left: 18px; }
-#transcript { white-space: pre-wrap; max-height: 40vh; overflow-y: auto;
-  border: 1px solid #eee; border-radius: 8px; padding: 8px; min-height: 60px; }
-#transcript .partial { color: #999; }
-.error { color: #b91c1c; }
+.cards:empty::before { content: "Insights will appear here during a session."; color: #999; }
+
+.line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.line.partial { color: #999; }
+.error { color: #b91c1c; flex: none; overflow-y: auto; max-height: 20vh; }
 progress { width: 100%; }
 @media (prefers-color-scheme: dark) {
   body { background: #1b1b1f; color: #e4e4e7; }
   .badge { background: #333; }
-  .card, #transcript { border-color: #3a3a40; }
+  .card, .pane { border-color: #3a3a40; }
   h2 { color: #9a9aa3; }
 }
